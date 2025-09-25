@@ -4,11 +4,19 @@ Implements automatic face detection using OpenCV with multiple detection methods
 """
 
 import os
-import cv2
-import numpy as np
 import logging
 from typing import List, Dict, Tuple, Optional
 from pathlib import Path
+
+# Conditional imports for OpenCV
+try:
+    import cv2
+    import numpy as np
+    OPENCV_AVAILABLE = True
+except ImportError:
+    cv2 = None
+    np = None
+    OPENCV_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -16,21 +24,20 @@ class FaceDetector:
     """Face detection using OpenCV with multiple detection methods"""
     
     def __init__(self):
-        self.opencv_available = True
+        self.opencv_available = OPENCV_AVAILABLE
         self.face_cascade = None
         self.dnn_net = None
         self.confidence_threshold = 0.5
         
-        try:
-            import cv2
-            self._initialize_detectors()
-            logger.info("Face detection initialized successfully")
-        except ImportError:
-            self.opencv_available = False
+        if not OPENCV_AVAILABLE:
             logger.warning("OpenCV not available - face detection disabled")
-        except Exception as e:
-            logger.error(f"Failed to initialize face detection: {e}")
-            self.opencv_available = False
+        else:
+            try:
+                self._initialize_detectors()
+                logger.info("Face detection initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize face detection: {e}")
+                self.opencv_available = False
     
     def _initialize_detectors(self):
         """Initialize face detection models"""
