@@ -5,7 +5,7 @@ Implements automatic face detection using OpenCV with multiple detection methods
 
 import os
 import logging
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, TYPE_CHECKING
 from pathlib import Path
 
 # Conditional imports for OpenCV
@@ -17,6 +17,10 @@ except ImportError:
     cv2 = None
     np = None
     OPENCV_AVAILABLE = False
+
+# Type hints for when numpy is available
+if TYPE_CHECKING:
+    import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +101,7 @@ layer {
         with open(prototxt_path, 'w') as f:
             f.write(prototxt_content)
     
-    def detect_faces_haar(self, image: np.ndarray) -> List[Dict]:
+    def detect_faces_haar(self, image: "np.ndarray") -> List[Dict]:
         """
         Detect faces using Haar cascade classifier
         
@@ -144,7 +148,7 @@ layer {
             logger.error(f"Haar cascade face detection failed: {e}")
             return []
     
-    def detect_faces_dnn(self, image: np.ndarray) -> List[Dict]:
+    def detect_faces_dnn(self, image: "np.ndarray") -> List[Dict]:
         """
         Detect faces using DNN (more accurate but requires model files)
         

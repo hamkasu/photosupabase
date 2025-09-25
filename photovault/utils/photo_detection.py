@@ -104,7 +104,7 @@ class PhotoDetector:
             logger.error(f"Photo detection failed for {image_path}: {e}")
             return []
     
-    def _preprocess_image(self, image: np.ndarray) -> np.ndarray:
+    def _preprocess_image(self, image: "np.ndarray") -> "np.ndarray":
         """Preprocess image for better edge detection"""
         # Convert to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -127,7 +127,7 @@ class PhotoDetector:
         
         return edges
         
-    def _find_contours(self, processed_image: np.ndarray) -> List:
+    def _find_contours(self, processed_image: "np.ndarray") -> List:
         """Find contours in the processed image"""
         # Find contours
         contours, _ = cv2.findContours(

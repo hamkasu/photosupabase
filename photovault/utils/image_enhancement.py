@@ -105,7 +105,7 @@ class ImageEnhancer:
         logger.info(f"Auto-enhancement completed: {output_path}")
         return output_path, enhancement_settings
     
-    def _apply_denoising(self, img: np.ndarray) -> np.ndarray:
+    def _apply_denoising(self, img: "np.ndarray") -> "np.ndarray":
         """Apply bilateral filtering to reduce noise while preserving edges"""
         if not OPENCV_AVAILABLE:
             return img
@@ -116,7 +116,7 @@ class ImageEnhancer:
             logger.warning(f"Denoising failed: {e}")
             return img
     
-    def _apply_clahe(self, img: np.ndarray) -> np.ndarray:
+    def _apply_clahe(self, img: "np.ndarray") -> "np.ndarray":
         """Apply Contrast Limited Adaptive Histogram Equalization"""
         if not OPENCV_AVAILABLE:
             return img
@@ -136,7 +136,7 @@ class ImageEnhancer:
             logger.warning(f"CLAHE enhancement failed: {e}")
             return img
     
-    def _apply_auto_levels(self, img: np.ndarray) -> np.ndarray:
+    def _apply_auto_levels(self, img: "np.ndarray") -> "np.ndarray":
         """Automatically adjust levels to improve dynamic range"""
         try:
             # Convert to float for calculations

@@ -158,7 +158,7 @@ class FaceRecognizer:
             logger.error(f"Error extracting face encoding: {e}")
             return None
     
-    def _extract_lbp_features(self, gray_image: np.ndarray) -> np.ndarray:
+    def _extract_lbp_features(self, gray_image: "np.ndarray") -> "np.ndarray":
         """Extract Local Binary Pattern features from a grayscale face image"""
         try:
             # Simple LBP implementation
@@ -283,7 +283,7 @@ class FaceRecognizer:
             logger.error(f"Error during face recognition: {e}")
             return None
     
-    def _calculate_encoding_distance(self, encoding1: np.ndarray, encoding2: np.ndarray) -> float:
+    def _calculate_encoding_distance(self, encoding1: "np.ndarray", encoding2: "np.ndarray") -> float:
         """
         Calculate distance between two face encodings
         

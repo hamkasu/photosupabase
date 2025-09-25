@@ -34,6 +34,10 @@ outputType = "webview"
 localPort = 5000
 externalPort = 80
 
+[[ports]]
+localPort = 43811
+externalPort = 3000
+
 [deployment]
 deploymentTarget = "autoscale"
 run = ["gunicorn", "--bind=0.0.0.0:$PORT", "--workers=2", "--timeout=30", "main:app"]

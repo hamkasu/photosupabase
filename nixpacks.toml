@@ -10,7 +10,10 @@ nixPkgs = [
     "libGL",
     "libgcc",
     "glibc",
-    "stdenv.cc.cc.lib"
+    "stdenv.cc.cc.lib",
+    "libstdcxx5",
+    "opencv4",
+    "pkg-config"
 ]
 
 [phases.install]
