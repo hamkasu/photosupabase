@@ -50,9 +50,12 @@ def dashboard():
         from photovault.models import Photo
         
         total_photos = Photo.query.filter_by(user_id=current_user.id).count()
-        # For now, assume all photos are originals since there's no edited version tracking yet
-        edited_photos = 0
-        original_photos = total_photos
+        # Count photos with edited versions
+        edited_photos = Photo.query.filter_by(user_id=current_user.id)\
+                              .filter(Photo.edited_filename.isnot(None))\
+                              .count()
+        # Original photos are those without edited versions
+        original_photos = total_photos - edited_photos
         
         # Calculate total storage used (in MB)
         photos = Photo.query.filter_by(user_id=current_user.id).all()
@@ -72,9 +75,25 @@ def dashboard():
         }
         
         # Get recent photos for dashboard display (limit to 12 most recent)
-        recent_photos = Photo.query.filter_by(user_id=current_user.id).order_by(Photo.created_at.desc()).limit(12).all()
+        from photovault.models import VoiceMemo
+        from photovault.extensions import db
+        from sqlalchemy import func
         
-        return render_template('dashboard.html', stats=stats, photos=recent_photos)
+        # Get photos with voice memo counts
+        recent_photos = db.session.query(
+            Photo,
+            func.count(VoiceMemo.id).label('voice_memo_count')
+        ).outerjoin(VoiceMemo).filter(
+            Photo.user_id == current_user.id
+        ).group_by(Photo.id).order_by(Photo.created_at.desc()).limit(12).all()
+        
+        # Convert to a format the template expects
+        photos_with_memos = []
+        for photo, memo_count in recent_photos:
+            photo.voice_memo_count = memo_count
+            photos_with_memos.append(photo)
+        
+        return render_template('dashboard.html', stats=stats, photos=photos_with_memos)
     except Exception as e:
         # Simple fallback for errors - just log to console
         print(f"Dashboard error: {str(e)}")
@@ -162,10 +181,25 @@ def gallery():
     try:
         from photovault.models import Photo
         
-        # Get all photos for the current user
-        photos = Photo.query.filter_by(user_id=current_user.id).order_by(Photo.created_at.desc()).all()
+        # Get all photos for the current user with voice memo counts
+        from photovault.models import VoiceMemo
+        from photovault.extensions import db
+        from sqlalchemy import func
         
-        return render_template('gallery/dashboard.html', photos=photos, total_photos=len(photos))
+        photos_with_counts = db.session.query(
+            Photo,
+            func.count(VoiceMemo.id).label('voice_memo_count')
+        ).outerjoin(VoiceMemo).filter(
+            Photo.user_id == current_user.id
+        ).group_by(Photo.id).order_by(Photo.created_at.desc()).all()
+        
+        # Convert to a format the template expects
+        photos_with_memos = []
+        for photo, memo_count in photos_with_counts:
+            photo.voice_memo_count = memo_count
+            photos_with_memos.append(photo)
+        
+        return render_template('gallery/dashboard.html', photos=photos_with_memos, total_photos=len(photos_with_memos))
     except Exception as e:
         print(f"Gallery error: {str(e)}")
         return render_template('gallery/dashboard.html', photos=[], total_photos=0)
@@ -187,6 +221,45 @@ def edit_photo(photo_id):
         print(f"Edit photo error: {str(e)}")
         return redirect(url_for('main.dashboard'))
 
+@main_bp.route('/advanced-enhancement')
+@login_required
+def advanced_enhancement():
+    """Advanced Image Enhancement page"""
+    try:
+        from photovault.models import Photo
+        from photovault.utils.image_enhancement import OPENCV_AVAILABLE
+        
+        # Get user's photos for selection
+        photos = Photo.query.filter_by(user_id=current_user.id).order_by(Photo.created_at.desc()).limit(20).all()
+        
+        return render_template('advanced_enhancement.html', 
+                             photos=photos,
+                             opencv_available=OPENCV_AVAILABLE)
+    except Exception as e:
+        print(f"Advanced enhancement error: {str(e)}")
+        flash('Error accessing advanced enhancement features.', 'error')
+        return redirect(url_for('main.dashboard'))
+
+@main_bp.route('/photos/<int:photo_id>/enhance')
+@login_required
+def enhance_photo(photo_id):
+    """Advanced Image Enhancement page for specific photo"""
+    try:
+        from photovault.models import Photo
+        from photovault.utils.image_enhancement import OPENCV_AVAILABLE
+        
+        # Get the photo and verify ownership
+        photo = Photo.query.get_or_404(photo_id)
+        if photo.user_id != current_user.id:
+            return redirect(url_for('main.dashboard'))
+            
+        return render_template('advanced_enhancement.html', 
+                             photo=photo,
+                             opencv_available=OPENCV_AVAILABLE)
+    except Exception as e:
+        print(f"Enhanced photo error: {str(e)}")
+        return redirect(url_for('main.dashboard'))
+
 @main_bp.route('/people')
 @login_required
 def people():
@@ -204,6 +277,19 @@ def people():
     except Exception as e:
         print(f"People page error: {str(e)}")
         return render_template('people.html', people=None)
+
+@main_bp.route('/montage')
+@login_required
+def montage():
+    """Photo montage creation page"""
+    try:
+        from photovault.models import Photo
+        # Get user's photos for montage creation
+        photos = Photo.query.filter_by(user_id=current_user.id).all()
+        return render_template('montage.html', photos=photos)
+    except Exception as e:
+        flash('Error loading montage page.', 'error')
+        return redirect(url_for('main.dashboard'))
 
 @main_bp.route('/people/add', methods=['POST'])
 @login_required
@@ -301,6 +387,11 @@ def edit_person(person_id):
         print(f"Edit person error: {str(e)}")
         flash('Error updating person. Please try again.', 'error')
         return redirect(url_for('main.people'))
+
+@main_bp.route('/api', methods=['GET', 'HEAD'])
+def api_health():
+    """API health check endpoint"""
+    return jsonify({'status': 'ok', 'service': 'PhotoVault'})
 
 @main_bp.route('/api/person/delete/<int:person_id>', methods=['DELETE'])
 @login_required

@@ -15,6 +15,7 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 from photovault.models import User, PasswordResetToken, db
+from photovault.utils import safe_db_query, retry_db_operation, TransientDBError
 import re
 
 auth_bp = Blueprint('auth', __name__)
@@ -51,10 +52,17 @@ def login():
             flash('Please enter both username and password.', 'error')
             return render_template('login.html')
         
-        # Try to find user by username or email
-        user = User.query.filter(
-            (User.username == username) | (User.email == username)
-        ).first()
+        # Try to find user by username or email with retry logic
+        def find_user():
+            return User.query.filter(
+                (User.username == username) | (User.email == username)
+            ).first()
+        
+        try:
+            user = safe_db_query(find_user, operation_name="user lookup")
+        except TransientDBError:
+            flash('Temporary database issue. Please try again in a moment.', 'error')
+            return render_template('login.html')
         
         if user and check_password_hash(user.password_hash, password):
             login_user(user, remember=remember)
@@ -113,10 +121,17 @@ def register():
             flash('Passwords do not match.', 'error')
             return render_template('register.html')
         
-        # Check if user already exists
-        existing_user = User.query.filter(
-            (User.username == username) | (User.email == email)
-        ).first()
+        # Check if user already exists with retry logic
+        def check_existing_user():
+            return User.query.filter(
+                (User.username == username) | (User.email == email)
+            ).first()
+        
+        try:
+            existing_user = safe_db_query(check_existing_user, operation_name="existing user check")
+        except TransientDBError:
+            flash('Temporary database issue. Please try again in a moment.', 'error')
+            return render_template('register.html')
         
         if existing_user:
             if existing_user.username == username:
@@ -125,23 +140,33 @@ def register():
                 flash('Email already registered. Please use a different email.', 'error')
             return render_template('register.html')
         
-        try:
-            # Create new user
+        @retry_db_operation(max_retries=3)
+        def create_user():
             user = User(
                 username=username,
-                email=email,
-                password_hash=generate_password_hash(password)
+                email=email
             )
-            
+            user.set_password(password)
             db.session.add(user)
             db.session.commit()
-            
+            return user
+        
+        try:
+            create_user()
             flash('Registration successful! You can now log in.', 'success')
             return redirect(url_for('auth.login'))
             
+        except TransientDBError:
+            flash('Temporary database issue. Please try again in a moment.', 'error')
+            return render_template('register.html')
         except Exception as e:
             db.session.rollback()
-            flash('An error occurred during registration. Please try again.', 'error')
+            current_app.logger.error(f'Registration error: {e}')
+            # Check if it's a duplicate user error
+            if 'unique constraint' in str(e).lower() or 'already exists' in str(e).lower():
+                flash('Username or email already exists. Please try different values.', 'error')
+            else:
+                flash('An error occurred during registration. Please try again.', 'error')
             return render_template('register.html')
     
     return render_template('register.html')
@@ -335,42 +360,28 @@ def reset_password(token):
     return render_template('auth/reset_password.html', token=token, user=reset_token.user)
 
 def send_password_reset_email(user, token):
-    """Send password reset email to user"""
+    """Send password reset email to user using SendGrid service"""
     try:
-        # For now, just log the reset link. In production, this would send an actual email.
-        reset_url = url_for('auth.reset_password', token=token, _external=True)
+        # Import SendGrid service
+        from photovault.services.sendgrid_service import send_password_reset_email as sendgrid_reset_email
         
-        # Security: Don't log the actual reset URL/token in production
-        current_app.logger.info(f"Password reset requested for user {user.id} ({user.email})")
+        # Try SendGrid first
+        if sendgrid_reset_email(user, token):
+            current_app.logger.info(f"Password reset email sent successfully to {user.email} via SendGrid")
+        else:
+            # Log failure but proceed with fallback
+            current_app.logger.error(f"SendGrid failed to send password reset email to {user.email}")
+            
+            # Fallback to console logging in development only
+            if current_app.debug:
+                reset_url = url_for('auth.reset_password', token=token, _external=True)
+                print(f"EMAIL TO {user.email}: Password reset link: {reset_url}")
+                current_app.logger.info(f"Used console fallback for password reset to {user.email}")
         
-        # TODO: Implement actual email sending using Replit Mail integration
-        # Example email content:
-        subject = "PhotoVault - Password Reset Request"
-        message = f"""
-        Hello {user.username},
-        
-        You have requested a password reset for your PhotoVault account.
-        
-        Click the link below to reset your password:
-        {reset_url}
-        
-        This link will expire in 1 hour.
-        
-        If you did not request this password reset, please ignore this email.
-        
-        Best regards,
-        PhotoVault Team
-        """
-        
-        # For development only: print to console (remove in production)
-        if current_app.debug:
-            print(f"EMAIL TO {user.email}:")
-            print(f"Subject: {subject}")
-            print(message)
-            print("-" * 50)
-        
+        # Always return True to prevent email enumeration attacks
         return True
         
     except Exception as e:
         current_app.logger.error(f"Failed to send reset email: {str(e)}")
-        return False
+        # Still return True to avoid revealing whether email exists or not
+        return True

@@ -9,11 +9,16 @@ from flask import Blueprint, request, jsonify, current_app, render_template
 from flask_login import login_required, current_user
 from werkzeug.exceptions import RequestEntityTooLarge
 from photovault.utils.file_handler import (
-    validate_image_file, save_uploaded_file, generate_unique_filename,
-    create_thumbnail, get_image_info, delete_file_safely
+    validate_image_file, generate_unique_filename
+)
+from photovault.utils.enhanced_file_handler import (
+    save_uploaded_file_enhanced, create_thumbnail_enhanced, 
+    get_image_info_enhanced, delete_file_enhanced
 )
 from photovault.utils.metadata_extractor import extract_metadata_for_photo
 from photovault.utils.image_enhancement import enhance_for_old_photo
+from photovault.utils.face_detection import detect_faces_in_photo
+from photovault.utils.face_recognition import face_recognizer
 import logging
 
 # Configure logging
@@ -75,14 +80,15 @@ def upload_photos():
                     errors.append(f"{file.filename}: {validation_msg}")
                     continue
                 
-                # Generate unique filename
+                # Generate unique filename with username
                 unique_filename = generate_unique_filename(
                     file.filename, 
-                    prefix='camera' if upload_source == 'camera' else 'upload'
+                    prefix='camera' if upload_source == 'camera' else 'upload',
+                    username=current_user.username
                 )
                 
                 # Save file
-                success, file_path_or_error = save_uploaded_file(
+                success, file_path_or_error = save_uploaded_file_enhanced(
                     file, unique_filename, current_user.id
                 )
                 
@@ -93,9 +99,9 @@ def upload_photos():
                 file_path = file_path_or_error
                 
                 # Get image information
-                image_info = get_image_info(file_path)
+                image_info = get_image_info_enhanced(file_path)
                 if not image_info:
-                    delete_file_safely(file_path)
+                    delete_file_enhanced(file_path)
                     errors.append(f"{file.filename}: Failed to read image information")
                     continue
                 
@@ -112,12 +118,12 @@ def upload_photos():
                 photo_metadata['auto_enhanced'] = False
                 
                 # Re-get image info after enhancement (dimensions may have changed)
-                final_image_info = get_image_info(file_path)
+                final_image_info = get_image_info_enhanced(file_path)
                 if final_image_info:
                     image_info = final_image_info
                 
                 # Create thumbnail (after enhancement)
-                thumb_success, thumb_path_or_error = create_thumbnail(file_path)
+                thumb_success, thumb_path_or_error = create_thumbnail_enhanced(file_path)
                 thumbnail_path = thumb_path_or_error if thumb_success else None
                 
                 # Save to database
@@ -128,7 +134,7 @@ def upload_photos():
                     photo = Photo(
                         user_id=current_user.id,
                         filename=unique_filename,
-                        original_name=file.filename or f'capture_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg',
+                        original_name=f"{current_user.username}_{file.filename}" if file.filename else f'{current_user.username}_capture_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg',
                         file_path=file_path,
                         thumbnail_path=thumbnail_path,
                         file_size=image_info['size_bytes'],
@@ -145,24 +151,46 @@ def upload_photos():
                     db.session.add(photo)
                     db.session.commit()
                     
+                    # Intelligent face detection and recognition
+                    face_processing_result = {}
+                    try:
+                        from photovault.services.face_detection_service import face_detection_service
+                        
+                        # Process faces with our intelligent service
+                        face_processing_result = face_detection_service.process_and_tag_photo(photo, auto_tag=True)
+                        
+                        if face_processing_result.get('faces_detected', 0) > 0:
+                            logger.info(f"Face processing completed for {file.filename}: "
+                                       f"{face_processing_result['faces_detected']} faces detected, "
+                                       f"{face_processing_result['faces_recognized']} recognized, "
+                                       f"{face_processing_result['tags_created']} auto-tagged")
+                    
+                    except Exception as face_detection_error:
+                        logger.warning(f"Face processing failed for {file.filename}: {face_detection_error}")
+                        # Don't fail the upload if face detection fails
+                        face_processing_result = {'error': str(face_detection_error)}
+                    
                     uploaded_files.append({
                         'id': photo.id,
                         'filename': unique_filename,
-                        'original_name': file.filename,
+                        'original_name': f"{current_user.username}_{file.filename}" if file.filename else f'{current_user.username}_capture',
                         'file_size': image_info['size_bytes'],
                         'dimensions': f"{image_info['width']}x{image_info['height']}",
                         'upload_source': upload_source,
                         'thumbnail_url': f"/api/thumbnail/{photo.id}" if thumbnail_path else None,
                         'auto_enhanced': photo_metadata.get('auto_enhanced', False),
+                        'faces_detected': face_processing_result.get('faces_detected', 0),
+                        'faces_recognized': face_processing_result.get('faces_recognized', 0),
+                        'tags_created': face_processing_result.get('tags_created', 0),
                         'has_metadata': bool(photo_metadata.get('date_taken'))
                     })
                     
                 except Exception as db_error:
                     logger.error(f"Database error for {file.filename}: {str(db_error)}")
                     # Clean up file if database save failed
-                    delete_file_safely(file_path)
+                    delete_file_enhanced(file_path)
                     if thumbnail_path:
-                        delete_file_safely(thumbnail_path)
+                        delete_file_enhanced(thumbnail_path)
                     errors.append(f"{file.filename}: Database save failed")
                     continue
                 
