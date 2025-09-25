@@ -6,6 +6,17 @@
     <meta name="theme-color" content="#000000">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>PhotoVault Camera</title>
+    
+    <!-- TensorFlow.js Libraries for AI Features -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet@2.2.2/dist/posenet.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/deeplab@0.2.1/dist/deeplab.min.js"></script>
+    
+    <!-- PhotoVault TensorFlow.js Manager -->
+    <script src="{{ url_for('static', filename='js/tensorflow-manager.js') }}"></script>
+    
     <style>
         * {
             margin: 0;
@@ -137,6 +148,23 @@
             box-shadow: 0 0 20px rgba(255, 193, 7, 0.4);
         }
 
+        .multi-photo-button {
+            background: rgba(34, 139, 34, 0.8);
+            border-color: rgba(34, 139, 34, 1);
+            transition: all 0.3s ease;
+        }
+
+        .multi-photo-button.active {
+            background: rgba(34, 139, 34, 1);
+            box-shadow: 0 0 20px rgba(34, 139, 34, 0.4);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
         /* Removed tap-anywhere capture overlay */
 
         /* SNAP Button */
@@ -175,6 +203,52 @@
             background: rgba(255, 255, 255, 0.3);
             border-color: rgba(255, 255, 255, 0.4);
             cursor: not-allowed;
+        }
+
+        /* Multi-Photo Progress */
+        .multi-photo-progress {
+            position: absolute;
+            bottom: 140px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            padding: 15px 20px;
+            color: white;
+            text-align: center;
+            z-index: 100;
+            min-width: 200px;
+        }
+
+        .progress-text {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #4ade80;
+        }
+
+        .progress-counter {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #22c55e);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.3s ease;
         }
 
         /* Zoom Controls */
@@ -498,6 +572,269 @@
         .hidden {
             display: none !important;
         }
+
+        /* Quad Split Overlay Styles */
+        .quad-split-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 50;
+            pointer-events: none;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 2px;
+        }
+
+        .quad-section {
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            background: rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            position: relative;
+            backdrop-filter: blur(1px);
+        }
+
+        .quad-section:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.8);
+        }
+
+        .quad-top-left {
+            border-top-left-radius: 0;
+        }
+
+        .quad-top-right {
+            border-top-right-radius: 0;
+        }
+
+        .quad-bottom-left {
+            border-bottom-left-radius: 0;
+        }
+
+        .quad-bottom-right {
+            border-bottom-right-radius: 0;
+        }
+
+        .quad-label {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 6px 12px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 0 0 8px 0;
+            position: absolute;
+            top: 0;
+            left: 0;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .quad-top-right .quad-label {
+            border-radius: 0 0 0 8px;
+            right: 0;
+            left: auto;
+        }
+
+        .quad-bottom-left .quad-label {
+            border-radius: 0 8px 0 0;
+            bottom: 0;
+            top: auto;
+        }
+
+        .quad-bottom-right .quad-label {
+            border-radius: 8px 0 0 0;
+            bottom: 0;
+            top: auto;
+            right: 0;
+            left: auto;
+        }
+
+        /* Mode Selector Styles */
+        .mode-selector {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 25px;
+            padding: 4px 8px;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            min-width: 120px;
+            justify-content: center;
+        }
+
+        .mode-selector:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(1.05);
+        }
+
+        .mode-selector.quad-mode {
+            background: rgba(34, 139, 34, 0.8);
+            border-color: rgba(34, 139, 34, 1);
+        }
+
+        .mode-selector.quad-mode:hover {
+            background: rgba(34, 139, 34, 1);
+        }
+
+        /* AI Control Buttons */
+        .ai-button {
+            background: rgba(102, 126, 234, 0.2);
+            border-color: rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .ai-button:hover {
+            background: rgba(102, 126, 234, 0.4);
+            border-color: rgba(102, 126, 234, 0.6);
+        }
+
+        .ai-button.active {
+            background: rgba(102, 126, 234, 0.8);
+            border-color: rgba(102, 126, 234, 1);
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.4);
+            animation: ai-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes ai-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* AI Overlay Canvases */
+        .ai-overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 60;
+        }
+
+        /* AI Information Panel */
+        .ai-info-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            border-radius: 15px;
+            padding: 15px;
+            color: white;
+            max-width: 300px;
+            z-index: 100;
+            display: none;
+        }
+
+        .ai-info-panel.visible {
+            display: block;
+        }
+
+        .ai-info-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+
+        .ai-info-content {
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .ai-info-item {
+            margin: 5px 0;
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .ai-info-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Composition Suggestions */
+        .composition-suggestions {
+            position: absolute;
+            top: 50%;
+            left: 20px;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 193, 7, 0.3);
+            border-radius: 15px;
+            padding: 15px;
+            color: white;
+            max-width: 250px;
+            z-index: 100;
+            display: none;
+        }
+
+        .composition-suggestions.visible {
+            display: block;
+        }
+
+        .composition-title {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #ffd700;
+        }
+
+        .composition-suggestion {
+            font-size: 12px;
+            margin: 8px 0;
+            padding: 8px;
+            background: rgba(255, 193, 7, 0.1);
+            border-radius: 8px;
+            border-left: 3px solid #ffd700;
+        }
+
+        /* AI Loading Indicator */
+        .ai-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+            text-align: center;
+            z-index: 200;
+            display: none;
+        }
+
+        .ai-loading.visible {
+            display: block;
+        }
+
+        .ai-loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(102, 126, 234, 0.3);
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -541,6 +878,29 @@
         <div class="camera-viewport">
             <video id="cameraVideo" autoplay playsinline muted></video>
             
+            <!-- Quad Split Overlay -->
+            <div class="quad-split-overlay hidden" id="quadSplitOverlay">
+                <div class="quad-section quad-top-left">
+                    <div class="quad-label">Top Left</div>
+                </div>
+                <div class="quad-section quad-top-right">
+                    <div class="quad-label">Top Right</div>
+                </div>
+                <div class="quad-section quad-bottom-left">
+                    <div class="quad-label">Bottom Left</div>
+                </div>
+                <div class="quad-section quad-bottom-right">
+                    <div class="quad-label">Bottom Right</div>
+                </div>
+            </div>
+            
+            <!-- AI Overlay Canvases -->
+            <canvas id="faceDetectionCanvas" class="ai-overlay-canvas" style="display: none;"></canvas>
+            <canvas id="objectDetectionCanvas" class="ai-overlay-canvas" style="display: none;"></canvas>
+            <canvas id="poseDetectionCanvas" class="ai-overlay-canvas" style="display: none;"></canvas>
+            <canvas id="compositionCanvas" class="ai-overlay-canvas" style="display: none;"></canvas>
+            <canvas id="smartFilterCanvas" class="ai-overlay-canvas" style="display: none;"></canvas>
+            
             <!-- Zoom Controls -->
             <div class="zoom-controls" id="zoomControls">
                 <button class="zoom-btn" id="zoomInBtn">+</button>
@@ -551,6 +911,24 @@
 
         <!-- Top Controls -->
         <div class="top-controls">
+            <button class="control-button ai-button" id="autoTagButton" title="Toggle Smart Auto-Tagging">
+                <span id="autoTagIcon">🏷️</span> <span id="autoTagText">Tags</span>
+            </button>
+            <button class="control-button ai-button" id="faceDetectionButton" title="Toggle Enhanced Face Detection">
+                <span id="faceDetectionIcon">👥</span> <span id="faceDetectionText">Faces</span>
+            </button>
+            <button class="control-button ai-button" id="smartFilterButton" title="Toggle Intelligent Photo Enhancement">
+                <span id="smartFilterIcon">✨</span> <span id="smartFilterText">Smart</span>
+            </button>
+            <button class="control-button ai-button" id="compositionButton" title="Toggle Smart Composition Analysis">
+                <span id="compositionIcon">🎯</span> <span id="compositionText">Compose</span>
+            </button>
+            <button class="control-button ai-button" id="poseDetectionButton" title="Toggle Pose Recognition">
+                <span id="poseDetectionIcon">🤸</span> <span id="poseDetectionText">Poses</span>
+            </button>
+            <button class="control-button" id="fullscreenButton" title="Toggle Fullscreen Mode">
+                <span id="fullscreenIcon">⛶</span> <span id="fullscreenText">Fullscreen</span>
+            </button>
             <button class="control-button exit-button" id="exitButton">
                 <span>✕</span> Exit
             </button>
@@ -559,15 +937,48 @@
             </button>
         </div>
         
+        <!-- AI Information Panel -->
+        <div class="ai-info-panel" id="aiInfoPanel">
+            <div class="ai-info-title">AI Detection Results</div>
+            <div class="ai-info-content" id="aiInfoContent">
+                <!-- Dynamic AI detection information will be displayed here -->
+            </div>
+        </div>
+
+        <!-- Composition Suggestions -->
+        <div class="composition-suggestions" id="compositionSuggestions">
+            <div class="composition-title">📸 Composition Tips</div>
+            <div id="compositionContent">
+                <!-- Dynamic composition suggestions will be displayed here -->
+            </div>
+        </div>
+
+        <!-- AI Loading Indicator -->
+        <div class="ai-loading" id="aiLoading">
+            <div class="ai-loading-spinner"></div>
+            <div id="aiLoadingText">Loading AI models...</div>
+        </div>
+
+        <!-- SNAP Button (moved above gallery button) -->
+        <button class="snap-button" id="snapButton" style="position: fixed; bottom: 200px; left: 20px; transform: none;">
+            <span id="snapText">📷 SNAP</span>
+        </button>
+
         <!-- Floating Gallery Button -->
         <a href="/dashboard" class="floating-gallery-btn" id="galleryBtn" title="Go to Gallery" aria-label="Go to Gallery">
             🖼️
         </a>
 
-        <!-- SNAP Button -->
-        <button class="snap-button" id="snapButton">
-            📷 SNAP
-        </button>
+        <!-- Multi-Photo Progress -->
+        <div class="multi-photo-progress hidden" id="multiPhotoProgress">
+            <div class="progress-text">Multi-Photo Mode</div>
+            <div class="progress-counter">
+                <span id="currentPhoto">1</span> / <span id="totalPhotos">4</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
 
         <!-- Photo Preview -->
         <div class="photo-preview" id="photoPreview">
@@ -695,6 +1106,19 @@
                 this.minZoom = 1.0;
                 this.zoomStep = 0.2;
                 
+                // Multi-photo mode properties
+                this.multiPhotoMode = false;
+                this.isBurstCapture = false;
+                this.burstPhotosRemaining = 0;
+                this.burstPhotoCount = 4; // Number of photos to capture in burst mode
+                
+                // Quad split mode properties
+                this.captureMode = 'sequential'; // 'sequential' or 'quad-split'
+                this.quadSplitOverlay = null;
+                
+                // Initialize mode selector as hidden
+                this.initializeModeSelector();
+                
                 this.setupElements();
                 this.setupEventListeners();
                 this.enforceOrientation();
@@ -716,7 +1140,15 @@
                 // Buttons
                 this.exitButton = document.getElementById('exitButton');
                 this.flashButton = document.getElementById('flashButton');
+                this.fullscreenButton = document.getElementById('fullscreenButton');
                 this.requestPermissionBtn = document.getElementById('requestPermissionBtn');
+                
+                // Multi-photo elements (removed mode buttons)
+                this.multiPhotoProgress = document.getElementById('multiPhotoProgress');
+                this.snapText = document.getElementById('snapText');
+                
+                // Quad split elements
+                this.quadSplitOverlay = document.getElementById('quadSplitOverlay');
             }
 
             setupEventListeners() {
@@ -725,6 +1157,7 @@
                 document.getElementById('snapButton').addEventListener('click', () => {
                     if (!captureInProgress) {
                         captureInProgress = true;
+                        // Simplified to single photo capture only
                         this.capturePhoto().finally(() => {
                             setTimeout(() => { captureInProgress = false; }, 500);
                         });
@@ -741,6 +1174,7 @@
                 // Control buttons
                 this.exitButton.addEventListener('click', () => this.exitCamera());
                 this.flashButton.addEventListener('click', () => this.toggleFlash());
+                this.fullscreenButton.addEventListener('click', () => this.toggleFullscreen());
                 this.requestPermissionBtn.addEventListener('click', () => this.requestCameraAccess());
                 
                 // Photo preview
@@ -915,6 +1349,424 @@
                 } else {
                     this.flashButton.innerHTML = '<span>⚡</span> Flash';
                 }
+            }
+
+            async toggleFullscreen() {
+                const isCurrentlyFullscreen = !!(document.fullscreenElement || 
+                                              document.webkitFullscreenElement || 
+                                              document.mozFullScreenElement || 
+                                              document.msFullscreenElement);
+                
+                try {
+                    if (isCurrentlyFullscreen) {
+                        await this.exitFullscreen();
+                        this.fullscreenButton.innerHTML = '<span id="fullscreenIcon">⛶</span> <span id="fullscreenText">Fullscreen</span>';
+                        this.fullscreenButton.classList.remove('active');
+                    } else {
+                        await this.tryEnterFullscreen('user_button');
+                        this.fullscreenButton.innerHTML = '<span id="fullscreenIcon">⛶</span> <span id="fullscreenText">Exit FS</span>';
+                        this.fullscreenButton.classList.add('active');
+                    }
+                } catch (error) {
+                    console.error('Error toggling fullscreen:', error);
+                }
+            }
+
+            toggleMultiPhotoMode() {
+                this.multiPhotoMode = !this.multiPhotoMode;
+                this.multiPhotoButton.classList.toggle('active', this.multiPhotoMode);
+                
+                // Update button appearance based on mode
+                if (this.multiPhotoMode) {
+                    document.getElementById('multiPhotoIcon').textContent = '📷📷📷📷';
+                    document.getElementById('multiPhotoText').textContent = 'Multi (x4)';
+                    if (this.captureMode === 'quad-split') {
+                        this.snapText.textContent = '📱 QUAD SPLIT (4x)';
+                    } else {
+                        this.snapText.textContent = '🚀 START MULTI (4x)';
+                    }
+                    // Show mode selector when multi-photo is enabled
+                    this.modeSelector.style.display = 'flex';
+                    // Show/hide quad overlay based on current mode
+                    this.updateQuadOverlay();
+                } else {
+                    document.getElementById('multiPhotoIcon').textContent = '📷';
+                    document.getElementById('multiPhotoText').textContent = 'Single';
+                    this.snapText.textContent = '📷 SNAP';
+                    // Hide mode selector when multi-photo is disabled
+                    this.modeSelector.style.display = 'none';
+                    // Hide quad overlay
+                    this.quadSplitOverlay.classList.add('hidden');
+                }
+                
+                console.log(`Multi-photo mode: ${this.multiPhotoMode ? 'ON' : 'OFF'}`);
+            }
+
+            toggleCaptureMode() {
+                // Switch between sequential and quad-split modes
+                this.captureMode = this.captureMode === 'sequential' ? 'quad-split' : 'sequential';
+                
+                // Update mode selector appearance
+                if (this.captureMode === 'quad-split') {
+                    this.modeSelector.classList.add('quad-mode');
+                    this.modeIcon.textContent = '📱';
+                    this.modeText.textContent = 'Quad Split';
+                    if (this.multiPhotoMode) {
+                        this.snapText.textContent = '📱 QUAD SPLIT (4x)';
+                    }
+                } else {
+                    this.modeSelector.classList.remove('quad-mode');
+                    this.modeIcon.textContent = '📷';
+                    this.modeText.textContent = 'Sequential';
+                    if (this.multiPhotoMode) {
+                        this.snapText.textContent = '🚀 START MULTI (4x)';
+                    }
+                }
+                
+                // Update quad overlay visibility
+                this.updateQuadOverlay();
+                
+                console.log(`Capture mode: ${this.captureMode}`);
+            }
+
+            updateQuadOverlay() {
+                // Show quad overlay only when multi-photo mode is on and quad-split is selected
+                if (this.multiPhotoMode && this.captureMode === 'quad-split') {
+                    this.quadSplitOverlay.classList.remove('hidden');
+                } else {
+                    this.quadSplitOverlay.classList.add('hidden');
+                }
+            }
+
+            async captureQuadSplit() {
+                if (!this.multiPhotoMode || this.captureMode !== 'quad-split') return;
+                
+                console.log('📱 Starting quad-split capture...');
+                
+                // Show progress indicator
+                this.multiPhotoProgress.classList.remove('hidden');
+                const progressText = this.multiPhotoProgress.querySelector('.progress-text');
+                progressText.textContent = 'Capturing Quad Split...';
+                progressText.style.color = '#4ade80';
+                
+                // Disable controls during capture
+                this.disableControlsDuringCapture(true);
+                
+                try {
+                    // Visual feedback
+                    this.triggerFlash();
+                    this.playCaptureSound();
+                    
+                    // Ensure we have valid video dimensions
+                    if (this.video.videoWidth === 0 || this.video.videoHeight === 0) {
+                        throw new Error('Video not ready for capture');
+                    }
+                    
+                    // Set canvas to match video dimensions
+                    this.canvas.width = this.video.videoWidth;
+                    this.canvas.height = this.video.videoHeight;
+                    
+                    console.log(`📐 Capturing at resolution: ${this.canvas.width}x${this.canvas.height}`);
+                    
+                    // Draw the full video frame to canvas
+                    this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+                    
+                    // Calculate quadrant dimensions
+                    const quadWidth = Math.floor(this.canvas.width / 2);
+                    const quadHeight = Math.floor(this.canvas.height / 2);
+                    
+                    // Define quadrant positions and names
+                    const quadrants = [
+                        { name: 'top-left', x: 0, y: 0 },
+                        { name: 'top-right', x: quadWidth, y: 0 },
+                        { name: 'bottom-left', x: 0, y: quadHeight },
+                        { name: 'bottom-right', x: quadWidth, y: quadHeight }
+                    ];
+                    
+                    const uploadPromises = [];
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+                    
+                    // Create and upload each quadrant
+                    for (const [index, quad] of quadrants.entries()) {
+                        // Create a separate canvas for each quadrant
+                        const quadCanvas = document.createElement('canvas');
+                        quadCanvas.width = quadWidth;
+                        quadCanvas.height = quadHeight;
+                        const quadCtx = quadCanvas.getContext('2d');
+                        
+                        // Draw the quadrant from the main canvas
+                        quadCtx.drawImage(
+                            this.canvas,
+                            quad.x, quad.y, quadWidth, quadHeight,
+                            0, 0, quadWidth, quadHeight
+                        );
+                        
+                        // Convert to blob
+                        const blob = await new Promise((resolve, reject) => {
+                            quadCanvas.toBlob(resolve, 'image/jpeg', 0.9);
+                            setTimeout(() => reject(new Error('Quadrant capture timeout')), 5000);
+                        });
+                        
+                        if (!blob) {
+                            throw new Error(`Failed to create blob for quadrant ${quad.name}`);
+                        }
+                        
+                        // Create filename with quadrant identifier
+                        const filename = `quad-${quad.name}-${timestamp}.jpg`;
+                        
+                        // Upload each quadrant
+                        const uploadPromise = this.uploadQuadPhoto(blob, filename, quad.name);
+                        uploadPromises.push(uploadPromise);
+                        
+                        // Update progress
+                        const progressPercent = ((index + 1) / 4) * 100;
+                        document.getElementById('progressFill').style.width = `${progressPercent}%`;
+                        document.getElementById('currentPhoto').textContent = index + 1;
+                        
+                        console.log(`✅ Quadrant ${quad.name} prepared for upload (${(blob.size / 1024).toFixed(1)}KB)`);
+                    }
+                    
+                    // Wait for all uploads to complete
+                    const results = await Promise.all(uploadPromises);
+                    
+                    // Check if all uploads succeeded
+                    const allSuccessful = results.every(result => result.success);
+                    
+                    if (allSuccessful) {
+                        console.log('✅ All quad-split photos uploaded successfully!');
+                        progressText.textContent = '✅ Quad Split Complete!';
+                        progressText.style.color = '#10b981';
+                        
+                        // Show last captured quadrant as preview
+                        if (results.length > 0 && results[0].dataUrl) {
+                            this.updatePhotoPreview(results[0].dataUrl);
+                        }
+                    } else {
+                        throw new Error('Some quadrant uploads failed');
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Quad-split capture failed:', error);
+                    progressText.textContent = '❌ Capture Failed';
+                    progressText.style.color = '#ef4444';
+                } finally {
+                    this.disableControlsDuringCapture(false);
+                    
+                    // Hide progress indicator after delay
+                    setTimeout(() => {
+                        this.multiPhotoProgress.classList.add('hidden');
+                        const progressText = this.multiPhotoProgress.querySelector('.progress-text');
+                        progressText.textContent = 'Multi-Photo Mode';
+                        progressText.style.color = '#4ade80';
+                    }, 2000);
+                }
+            }
+
+            async uploadQuadPhoto(blob, filename, quadrantName) {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', blob, filename);
+                    formData.append('source', 'camera');
+                    formData.append('quadrant', quadrantName);
+                    
+                    // Get CSRF token
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    if (csrfToken) {
+                        formData.append('csrf_token', csrfToken);
+                    }
+
+                    const uploadResponse = await fetch('/camera/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (uploadResponse.ok) {
+                        const result = await uploadResponse.json();
+                        console.log(`✅ Quadrant ${quadrantName} uploaded successfully`);
+                        return { 
+                            success: true, 
+                            filename: filename, 
+                            quadrant: quadrantName,
+                            dataUrl: URL.createObjectURL(blob)
+                        };
+                    } else {
+                        const errorData = await uploadResponse.json();
+                        console.error(`❌ Upload failed for ${quadrantName}:`, errorData.error || 'Unknown error');
+                        return { success: false, quadrant: quadrantName };
+                    }
+                } catch (error) {
+                    console.error(`❌ Upload failed for ${quadrantName}:`, error.message);
+                    return { success: false, quadrant: quadrantName };
+                }
+            }
+
+            triggerFlash() {
+                // Trigger visual flash effect
+                if (this.flashEffect) {
+                    this.flashEffect.classList.add('active');
+                    setTimeout(() => {
+                        this.flashEffect.classList.remove('active');
+                    }, 300);
+                }
+            }
+
+            updatePhotoPreview(dataUrl) {
+                // Update the photo preview with the captured image
+                if (this.previewImage && this.photoPreview) {
+                    this.previewImage.src = dataUrl;
+                    this.photoPreview.classList.add('visible');
+                    
+                    // Store the photo for later access
+                    this.photos.push({ dataUrl: dataUrl, timestamp: new Date() });
+                }
+            }
+
+            initializeModeSelector() {
+                // Initialize mode selector to be hidden by default
+                // It will be shown only when multi-photo mode is enabled
+                console.log('🔧 Initializing mode selector...');
+            }
+
+            async startBurstCapture() {
+                if (this.isBurstCapture) return;
+                
+                console.log('🚀 Starting guided multi-photo capture...');
+                this.isBurstCapture = true;
+                this.burstPhotosRemaining = this.burstPhotoCount;
+                
+                // Disable other controls during capture
+                this.disableControlsDuringCapture(true);
+                
+                // Show progress indicator
+                this.multiPhotoProgress.classList.remove('hidden');
+                this.updateMultiPhotoProgress();
+                
+                try {
+                    for (let i = 0; i < this.burstPhotoCount; i++) {
+                        console.log(`📸 Multi-photo ${i + 1}/${this.burstPhotoCount}`);
+                        
+                        // Update progress
+                        document.getElementById('currentPhoto').textContent = i + 1;
+                        const progressPercent = ((i + 1) / this.burstPhotoCount) * 100;
+                        document.getElementById('progressFill').style.width = `${progressPercent}%`;
+                        
+                        if (i === 0) {
+                            // First photo - capture immediately
+                            await this.capturePhoto();
+                        } else {
+                            // Subsequent photos - show countdown and instructions
+                            await this.showCountdownForNextPhoto(i + 1);
+                            
+                            // Check if capture was cancelled during countdown
+                            if (!this.isBurstCapture) break;
+                            
+                            // Capture the photo
+                            await this.capturePhoto();
+                        }
+                        
+                        // Short delay after each capture for feedback
+                        if (i < this.burstPhotoCount - 1) {
+                            await new Promise(resolve => setTimeout(resolve, 800));
+                        }
+                    }
+                    
+                    if (this.isBurstCapture) {
+                        console.log('✅ Multi-photo capture completed!');
+                        this.showMultiCaptureComplete();
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Multi-photo capture failed:', error);
+                } finally {
+                    this.isBurstCapture = false;
+                    this.burstPhotosRemaining = 0;
+                    this.disableControlsDuringCapture(false);
+                    
+                    // Hide progress indicator after delay
+                    setTimeout(() => {
+                        this.multiPhotoProgress.classList.add('hidden');
+                    }, 2000);
+                }
+            }
+
+            async showCountdownForNextPhoto(photoNumber) {
+                const progressText = this.multiPhotoProgress.querySelector('.progress-text');
+                const originalText = progressText.textContent;
+                
+                // Show instruction for next photo
+                progressText.textContent = `Position photo #${photoNumber}`;
+                progressText.style.color = '#fbbf24';
+                
+                // 3-second countdown
+                for (let countdown = 3; countdown >= 1; countdown--) {
+                    if (!this.isBurstCapture) return; // Check for cancellation
+                    
+                    progressText.textContent = `Position photo #${photoNumber} - ${countdown}s`;
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+                
+                // Ready to capture
+                progressText.textContent = `Capturing photo #${photoNumber}...`;
+                progressText.style.color = '#4ade80';
+            }
+
+            disableControlsDuringCapture(disable) {
+                // Disable/enable controls during multi-photo capture
+                this.flashButton.disabled = disable;
+                this.exitButton.disabled = disable;
+                this.multiPhotoButton.style.opacity = disable ? '0.5' : '1';
+                this.multiPhotoButton.style.pointerEvents = disable ? 'none' : 'auto';
+                
+                // Update snap button to show cancel option during capture
+                if (disable) {
+                    this.snapText.textContent = '❌ CANCEL';
+                    this.snapButton.onclick = () => this.cancelMultiCapture();
+                } else {
+                    this.restoreSnapButton();
+                }
+            }
+
+            cancelMultiCapture() {
+                console.log('❌ Multi-photo capture cancelled by user');
+                this.isBurstCapture = false;
+                
+                const progressText = this.multiPhotoProgress.querySelector('.progress-text');
+                progressText.textContent = 'Cancelled';
+                progressText.style.color = '#ef4444';
+                
+                setTimeout(() => {
+                    this.multiPhotoProgress.classList.add('hidden');
+                }, 1500);
+            }
+
+            restoreSnapButton() {
+                // Restore original snap button functionality
+                if (this.multiPhotoMode) {
+                    this.snapText.textContent = '🚀 START MULTI (4x)';
+                } else {
+                    this.snapText.textContent = '📷 SNAP';
+                }
+                
+                // Reset click handler (this will be overridden by the original event listener)
+                this.snapButton.onclick = null;
+            }
+
+            updateMultiPhotoProgress() {
+                document.getElementById('totalPhotos').textContent = this.burstPhotoCount;
+                document.getElementById('currentPhoto').textContent = '1';
+                document.getElementById('progressFill').style.width = '0%';
+            }
+
+            showMultiCaptureComplete() {
+                // Temporarily update progress text to show completion
+                const progressText = this.multiPhotoProgress.querySelector('.progress-text');
+                progressText.textContent = '✅ All Photos Captured!';
+                progressText.style.color = '#10b981';
+                
+                setTimeout(() => {
+                    progressText.textContent = 'Multi-Photo Mode';
+                    progressText.style.color = '#4ade80';
+                }, 1500);
             }
 
             openLastPhoto() {
@@ -1145,9 +1997,580 @@
             }
         }
 
+        // Enhanced PhotoVault Camera with AI Features
+        class PhotoVaultEnhancedAICamera extends PhotoVaultCamera {
+            constructor() {
+                super();
+                console.log('🤖 Initializing AI-Enhanced PhotoVault Camera');
+                
+                // AI Components
+                this.tensorflowManager = null;
+                this.activityRecognizer = null;
+                this.smartComposition = null;
+                
+                // AI Feature States
+                this.aiFeatures = {
+                    autoTag: false,
+                    faceDetection: false,
+                    smartFilter: false,
+                    composition: false,
+                    poseDetection: false
+                };
+                
+                // AI Processing
+                this.aiProcessingInterval = null;
+                this.lastProcessingTime = 0;
+                this.processingDelay = 100; // Process every 100ms for real-time feel
+                
+                // AI Elements
+                this.aiElements = {
+                    faceCanvas: document.getElementById('faceDetectionCanvas'),
+                    objectCanvas: document.getElementById('objectDetectionCanvas'),
+                    poseCanvas: document.getElementById('poseDetectionCanvas'),
+                    compositionCanvas: document.getElementById('compositionCanvas'),
+                    smartFilterCanvas: document.getElementById('smartFilterCanvas'),
+                    aiInfoPanel: document.getElementById('aiInfoPanel'),
+                    aiInfoContent: document.getElementById('aiInfoContent'),
+                    compositionSuggestions: document.getElementById('compositionSuggestions'),
+                    compositionContent: document.getElementById('compositionContent'),
+                    aiLoading: document.getElementById('aiLoading'),
+                    aiLoadingText: document.getElementById('aiLoadingText')
+                };
+                
+                // Initialize AI system
+                this.initializeAI();
+            }
+
+            async initializeAI() {
+                try {
+                    // Show loading indicator
+                    this.showAILoading('Initializing AI models...');
+                    
+                    // Initialize TensorFlow.js Manager
+                    this.tensorflowManager = new PhotoVaultTensorFlowManager();
+                    
+                    // Load core models (COCO-SSD and BlazeFace for immediate use)
+                    const modelsLoaded = await this.tensorflowManager.initializeModels(['cocoSSD', 'blazeFace']);
+                    
+                    if (modelsLoaded) {
+                        // Initialize AI helper classes
+                        this.activityRecognizer = new ActivityRecognizer(this.tensorflowManager);
+                        this.smartComposition = new SmartComposition(this.tensorflowManager);
+                        
+                        console.log('✅ AI system initialized successfully');
+                        this.setupAIEventListeners();
+                        this.hideAILoading();
+                        
+                        // Load additional models in background
+                        setTimeout(() => {
+                            this.tensorflowManager.initializeModels(['poseNet']);
+                        }, 2000);
+                    } else {
+                        throw new Error('Failed to load core AI models');
+                    }
+                } catch (error) {
+                    console.error('❌ AI initialization failed:', error);
+                    this.showAIError('AI features unavailable');
+                    setTimeout(() => this.hideAILoading(), 3000);
+                }
+            }
+
+            setupAIEventListeners() {
+                // Auto-tag button
+                document.getElementById('autoTagButton')?.addEventListener('click', () => {
+                    this.toggleAIFeature('autoTag');
+                });
+
+                // Face detection button
+                document.getElementById('faceDetectionButton')?.addEventListener('click', () => {
+                    this.toggleAIFeature('faceDetection');
+                });
+
+                // Smart filter button
+                document.getElementById('smartFilterButton')?.addEventListener('click', () => {
+                    this.toggleAIFeature('smartFilter');
+                });
+
+                // Composition analysis button
+                document.getElementById('compositionButton')?.addEventListener('click', () => {
+                    this.toggleAIFeature('composition');
+                });
+
+                // Pose detection button
+                document.getElementById('poseDetectionButton')?.addEventListener('click', () => {
+                    this.toggleAIFeature('poseDetection');
+                });
+            }
+
+            toggleAIFeature(featureName) {
+                this.aiFeatures[featureName] = !this.aiFeatures[featureName];
+                const button = document.getElementById(`${featureName}Button`);
+                
+                if (this.aiFeatures[featureName]) {
+                    button?.classList.add('active');
+                    this.startAIFeature(featureName);
+                } else {
+                    button?.classList.remove('active');
+                    this.stopAIFeature(featureName);
+                }
+                
+                console.log(`🔄 AI Feature ${featureName}: ${this.aiFeatures[featureName] ? 'ON' : 'OFF'}`);
+            }
+
+            startAIFeature(featureName) {
+                switch (featureName) {
+                    case 'autoTag':
+                        this.startObjectDetection();
+                        break;
+                    case 'faceDetection':
+                        this.startFaceDetection();
+                        break;
+                    case 'smartFilter':
+                        this.startSmartFiltering();
+                        break;
+                    case 'composition':
+                        this.startCompositionAnalysis();
+                        break;
+                    case 'poseDetection':
+                        this.startPoseDetection();
+                        break;
+                }
+                
+                // Start AI processing loop if not already running
+                if (!this.aiProcessingInterval) {
+                    this.startAIProcessingLoop();
+                }
+            }
+
+            stopAIFeature(featureName) {
+                switch (featureName) {
+                    case 'autoTag':
+                        this.aiElements.objectCanvas.style.display = 'none';
+                        break;
+                    case 'faceDetection':
+                        this.aiElements.faceCanvas.style.display = 'none';
+                        break;
+                    case 'smartFilter':
+                        this.aiElements.smartFilterCanvas.style.display = 'none';
+                        break;
+                    case 'composition':
+                        this.aiElements.compositionCanvas.style.display = 'none';
+                        this.aiElements.compositionSuggestions.classList.remove('visible');
+                        break;
+                    case 'poseDetection':
+                        this.aiElements.poseCanvas.style.display = 'none';
+                        break;
+                }
+                
+                // Stop AI processing if no features are active
+                const hasActiveFeatures = Object.values(this.aiFeatures).some(active => active);
+                if (!hasActiveFeatures && this.aiProcessingInterval) {
+                    clearInterval(this.aiProcessingInterval);
+                    this.aiProcessingInterval = null;
+                    this.aiElements.aiInfoPanel.classList.remove('visible');
+                }
+            }
+
+            startAIProcessingLoop() {
+                this.aiProcessingInterval = setInterval(async () => {
+                    if (!this.video || this.video.videoWidth === 0) return;
+                    
+                    const currentTime = Date.now();
+                    if (currentTime - this.lastProcessingTime < this.processingDelay) return;
+                    
+                    this.lastProcessingTime = currentTime;
+                    await this.processAIFrame();
+                }, this.processingDelay);
+            }
+
+            async processAIFrame() {
+                const results = {};
+                
+                try {
+                    // Process active AI features
+                    if (this.aiFeatures.autoTag) {
+                        results.objects = await this.tensorflowManager.detectObjects(this.video);
+                        this.drawObjectDetections(results.objects);
+                    }
+                    
+                    if (this.aiFeatures.faceDetection) {
+                        results.faces = await this.tensorflowManager.detectFaces(this.video);
+                        this.drawFaceDetections(results.faces);
+                    }
+                    
+                    if (this.aiFeatures.composition) {
+                        results.composition = await this.smartComposition.analyzeComposition(this.video);
+                        this.showCompositionSuggestions(results.composition);
+                    }
+                    
+                    if (this.aiFeatures.poseDetection && this.tensorflowManager.isModelLoaded('poseNet')) {
+                        results.poses = await this.tensorflowManager.detectPoses(this.video);
+                        this.drawPoseDetections(results.poses);
+                        
+                        // Activity recognition
+                        const activity = await this.activityRecognizer.recognizeActivity(this.video);
+                        results.activity = activity;
+                    }
+                    
+                    // Update AI info panel
+                    this.updateAIInfoPanel(results);
+                    
+                } catch (error) {
+                    console.error('AI processing error:', error);
+                }
+            }
+
+            drawObjectDetections(objects) {
+                const canvas = this.aiElements.objectCanvas;
+                const ctx = canvas.getContext('2d');
+                
+                // Set canvas size to match video
+                canvas.width = this.video.videoWidth;
+                canvas.height = this.video.videoHeight;
+                canvas.style.display = 'block';
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw object detections
+                objects.forEach(obj => {
+                    const [x, y, width, height] = obj.bbox;
+                    
+                    // Draw bounding box
+                    ctx.strokeStyle = '#00ff00';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(x, y, width, height);
+                    
+                    // Draw label background
+                    const label = `${obj.class} (${(obj.score * 100).toFixed(1)}%)`;
+                    ctx.font = '16px Arial';
+                    const textWidth = ctx.measureText(label).width;
+                    
+                    ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
+                    ctx.fillRect(x, y - 25, textWidth + 10, 25);
+                    
+                    // Draw label text
+                    ctx.fillStyle = '#000';
+                    ctx.fillText(label, x + 5, y - 5);
+                });
+            }
+
+            drawFaceDetections(faces) {
+                const canvas = this.aiElements.faceCanvas;
+                const ctx = canvas.getContext('2d');
+                
+                canvas.width = this.video.videoWidth;
+                canvas.height = this.video.videoHeight;
+                canvas.style.display = 'block';
+                
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                faces.forEach(face => {
+                    const [x, y, width, height] = face.bbox;
+                    
+                    // Draw face bounding box
+                    ctx.strokeStyle = '#ff0000';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(x, y, width, height);
+                    
+                    // Draw landmarks if available
+                    if (face.landmarks) {
+                        ctx.fillStyle = '#ff0000';
+                        face.landmarks.forEach(landmark => {
+                            ctx.beginPath();
+                            ctx.arc(landmark[0], landmark[1], 3, 0, 2 * Math.PI);
+                            ctx.fill();
+                        });
+                    }
+                });
+            }
+
+            drawPoseDetections(poses) {
+                const canvas = this.aiElements.poseCanvas;
+                const ctx = canvas.getContext('2d');
+                
+                canvas.width = this.video.videoWidth;
+                canvas.height = this.video.videoHeight;
+                canvas.style.display = 'block';
+                
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                poses.forEach(pose => {
+                    // Draw keypoints
+                    pose.keypoints.forEach(keypoint => {
+                        if (keypoint.score > 0.3) {
+                            ctx.beginPath();
+                            ctx.arc(keypoint.position.x, keypoint.position.y, 5, 0, 2 * Math.PI);
+                            ctx.fillStyle = '#ffff00';
+                            ctx.fill();
+                        }
+                    });
+                    
+                    // Draw skeleton connections
+                    this.drawPoseSkeleton(ctx, pose.keypoints);
+                });
+            }
+
+            drawPoseSkeleton(ctx, keypoints) {
+                const connections = [
+                    ['leftShoulder', 'rightShoulder'],
+                    ['leftShoulder', 'leftElbow'],
+                    ['leftElbow', 'leftWrist'],
+                    ['rightShoulder', 'rightElbow'],
+                    ['rightElbow', 'rightWrist'],
+                    ['leftShoulder', 'leftHip'],
+                    ['rightShoulder', 'rightHip'],
+                    ['leftHip', 'rightHip'],
+                    ['leftHip', 'leftKnee'],
+                    ['leftKnee', 'leftAnkle'],
+                    ['rightHip', 'rightKnee'],
+                    ['rightKnee', 'rightAnkle']
+                ];
+                
+                ctx.strokeStyle = '#ffff00';
+                ctx.lineWidth = 2;
+                
+                connections.forEach(([startPart, endPart]) => {
+                    const startPoint = keypoints.find(kp => kp.part === startPart);
+                    const endPoint = keypoints.find(kp => kp.part === endPart);
+                    
+                    if (startPoint && endPoint && startPoint.score > 0.3 && endPoint.score > 0.3) {
+                        ctx.beginPath();
+                        ctx.moveTo(startPoint.position.x, startPoint.position.y);
+                        ctx.lineTo(endPoint.position.x, endPoint.position.y);
+                        ctx.stroke();
+                    }
+                });
+            }
+
+            showCompositionSuggestions(composition) {
+                const suggestionsPanel = this.aiElements.compositionSuggestions;
+                const content = this.aiElements.compositionContent;
+                
+                if (composition.suggestions.length > 0) {
+                    suggestionsPanel.classList.add('visible');
+                    
+                    content.innerHTML = composition.suggestions.map(suggestion => `
+                        <div class="composition-suggestion">
+                            ${suggestion.message}
+                        </div>
+                    `).join('');
+                } else {
+                    suggestionsPanel.classList.remove('visible');
+                }
+            }
+
+            updateAIInfoPanel(results) {
+                const panel = this.aiElements.aiInfoPanel;
+                const content = this.aiElements.aiInfoContent;
+                
+                let hasInfo = false;
+                let infoHTML = '';
+                
+                if (results.objects && results.objects.length > 0) {
+                    hasInfo = true;
+                    infoHTML += `<div class="ai-info-item">🏷️ Objects: ${results.objects.length}</div>`;
+                }
+                
+                if (results.faces && results.faces.length > 0) {
+                    hasInfo = true;
+                    infoHTML += `<div class="ai-info-item">👥 Faces: ${results.faces.length}</div>`;
+                }
+                
+                if (results.poses && results.poses.length > 0) {
+                    hasInfo = true;
+                    infoHTML += `<div class="ai-info-item">🤸 Poses: ${results.poses.length}</div>`;
+                }
+                
+                if (results.activity && results.activity.activity !== 'unknown') {
+                    hasInfo = true;
+                    infoHTML += `<div class="ai-info-item">🎯 Activity: ${results.activity.activity}</div>`;
+                }
+                
+                if (results.composition) {
+                    hasInfo = true;
+                    infoHTML += `<div class="ai-info-item">📸 Score: ${results.composition.composition.score}/100</div>`;
+                }
+                
+                if (hasInfo) {
+                    content.innerHTML = infoHTML;
+                    panel.classList.add('visible');
+                } else {
+                    panel.classList.remove('visible');
+                }
+            }
+
+            startObjectDetection() {
+                this.aiElements.objectCanvas.style.display = 'block';
+            }
+
+            startFaceDetection() {
+                this.aiElements.faceCanvas.style.display = 'block';
+            }
+
+            startSmartFiltering() {
+                // Smart filtering implementation would go here
+                console.log('Smart filtering started');
+            }
+
+            startCompositionAnalysis() {
+                this.aiElements.compositionCanvas.style.display = 'block';
+            }
+
+            startPoseDetection() {
+                if (this.tensorflowManager.isModelLoaded('poseNet')) {
+                    this.aiElements.poseCanvas.style.display = 'block';
+                } else {
+                    console.log('Loading PoseNet model...');
+                    this.showAILoading('Loading pose detection model...');
+                    this.tensorflowManager.loadPoseNet().then(() => {
+                        this.hideAILoading();
+                        this.aiElements.poseCanvas.style.display = 'block';
+                    });
+                }
+            }
+
+            showAILoading(message) {
+                this.aiElements.aiLoadingText.textContent = message;
+                this.aiElements.aiLoading.classList.add('visible');
+            }
+
+            hideAILoading() {
+                this.aiElements.aiLoading.classList.remove('visible');
+            }
+
+            showAIError(message) {
+                this.aiElements.aiLoadingText.textContent = message;
+                // Keep loading indicator visible to show error
+            }
+
+            // Override capture method to include AI data
+            async capturePhotoWithAI() {
+                console.log('📸 Capturing photo with AI enhancements...');
+                
+                // Get current AI detection results
+                const aiData = {};
+                
+                if (this.aiFeatures.autoTag && this.tensorflowManager.isModelLoaded('cocoSSD')) {
+                    aiData.detectedObjects = await this.tensorflowManager.detectObjects(this.video);
+                }
+                
+                if (this.aiFeatures.faceDetection && this.tensorflowManager.isModelLoaded('blazeFace')) {
+                    aiData.detectedFaces = await this.tensorflowManager.detectFaces(this.video);
+                }
+                
+                if (this.aiFeatures.poseDetection && this.tensorflowManager.isModelLoaded('poseNet')) {
+                    const poses = await this.tensorflowManager.detectPoses(this.video);
+                    const activity = await this.activityRecognizer.recognizeActivity(this.video);
+                    aiData.poses = poses;
+                    aiData.activity = activity;
+                }
+                
+                if (this.aiFeatures.composition) {
+                    aiData.composition = await this.smartComposition.analyzeComposition(this.video);
+                }
+                
+                // Store AI data for upload
+                this.currentAIData = aiData;
+                
+                // Call original capture method and then send AI data
+                const result = await super.capturePhoto();
+                
+                // Send AI data to backend if capture was successful
+                if (result && this.currentAIData && Object.keys(this.currentAIData).length > 0) {
+                    await this.sendAIDataToBackend(result.photoId);
+                }
+                
+                return result;
+            }
+
+            async sendAIDataToBackend(photoId) {
+                try {
+                    // Send AI tags
+                    if (this.currentAIData.detectedObjects) {
+                        await fetch(`/api/photos/${photoId}/ai-tags`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': document.querySelector('meta[name=csrf-token]').content
+                            },
+                            body: JSON.stringify({ detectedObjects: this.currentAIData.detectedObjects })
+                        });
+                    }
+
+                    // Send AI faces
+                    if (this.currentAIData.detectedFaces) {
+                        await fetch(`/api/photos/${photoId}/ai-faces`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': document.querySelector('meta[name=csrf-token]').content
+                            },
+                            body: JSON.stringify({ detectedFaces: this.currentAIData.detectedFaces })
+                        });
+                    }
+
+                    // Send poses and activity
+                    if (this.currentAIData.poses || this.currentAIData.activity) {
+                        await fetch(`/api/photos/${photoId}/ai-poses`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': document.querySelector('meta[name=csrf-token]').content
+                            },
+                            body: JSON.stringify({ 
+                                poses: this.currentAIData.poses || [],
+                                activity: this.currentAIData.activity || {}
+                            })
+                        });
+                    }
+
+                    // Send composition analysis
+                    if (this.currentAIData.composition) {
+                        await fetch(`/api/photos/${photoId}/ai-composition`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': document.querySelector('meta[name=csrf-token]').content
+                            },
+                            body: JSON.stringify({ composition: this.currentAIData.composition })
+                        });
+                    }
+
+                    console.log('✅ AI data sent to backend successfully');
+                } catch (error) {
+                    console.error('❌ Failed to send AI data to backend:', error);
+                }
+            }
+
+            // Cleanup AI resources when exiting
+            exitCamera() {
+                // Stop AI processing
+                if (this.aiProcessingInterval) {
+                    clearInterval(this.aiProcessingInterval);
+                    this.aiProcessingInterval = null;
+                }
+                
+                // Dispose AI models to free memory
+                if (this.tensorflowManager) {
+                    this.tensorflowManager.disposeModels();
+                }
+                
+                // Call parent exit method
+                super.exitCamera();
+            }
+        }
+
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', () => {
-            new PhotoVaultCamera();
+            const camera = new PhotoVaultEnhancedAICamera();
+            
+            // Override the original capturePhoto method to use AI-enhanced version
+            const originalCapturePhoto = camera.capturePhoto;
+            camera.capturePhoto = camera.capturePhotoWithAI.bind(camera);
+            
+            // Store reference to original method for fallback
+            camera.originalCapturePhoto = originalCapturePhoto;
         });
 
         // Handle visibility changes

@@ -2,15 +2,20 @@
 
 from flask import Flask
 from photovault.extensions import db, login_manager, migrate, csrf
-from config import config, get_config
+from photovault.config import config
 import os
 
 def _create_superuser_if_needed(app):
     """Create superuser account from environment variables if no superuser exists"""
     from photovault.models import User
     
-    # Check if any superuser already exists
-    if User.query.filter_by(is_superuser=True).first():
+    try:
+        # Check if any superuser already exists
+        if User.query.filter_by(is_superuser=True).first():
+            return
+    except Exception as e:
+        # Tables don't exist yet (likely during migration), skip superuser creation
+        app.logger.info(f"Skipping superuser creation - tables not ready: {str(e)}")
         return
         
     # Get superuser credentials from environment variables
@@ -53,7 +58,8 @@ def create_app(config_class=None):
     
     # Configuration
     if config_class is None:
-        config_class = get_config()
+        config_name = os.environ.get('FLASK_CONFIG') or 'development'
+        config_class = config.get(config_name, config['default'])
     
     if isinstance(config_class, str):
         config_class = config.get(config_class, config['default'])
@@ -83,31 +89,38 @@ def create_app(config_class=None):
     from photovault.routes.main import main_bp
     from photovault.routes.auth import auth_bp
     from photovault.routes.upload import upload_bp
+    from photovault.routes.photo_detection import photo_detection_bp
     from photovault.routes.admin import admin_bp
     from photovault.routes.superuser import superuser_bp
     from photovault.routes.photo import photo_bp
     from photovault.routes.camera_routes import camera_bp
+    from photovault.routes.gallery import gallery_bp
+    from photovault.routes.family import family_bp
+    from photovault.routes.smart_tagging import smart_tagging_bp
     
     app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(upload_bp)
+    app.register_blueprint(photo_detection_bp)
     app.register_blueprint(camera_bp)
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(superuser_bp, url_prefix='/superuser')
     app.register_blueprint(photo_bp)
+    app.register_blueprint(gallery_bp)
+    app.register_blueprint(family_bp)
+    app.register_blueprint(smart_tagging_bp)
     
-    # Add route to serve uploaded images
-    @app.route('/static/uploads/<path:filename>')
-    def uploaded_file(filename):
-        """Serve uploaded files from the uploads directory"""
-        from flask import send_from_directory
-        import os
-        uploads_dir = app.config.get('UPLOAD_FOLDER')
-        return send_from_directory(uploads_dir, filename)
+    # Note: Upload file serving is handled securely via gallery.uploaded_file route with authentication
     
-    # Create database tables
+    # Initialize database
     with app.app_context():
-        db.create_all()
+        # Create tables if they don't exist
+        # For SQLite in production or development/testing environments
+        if app.debug or app.testing or 'sqlite' in app.config.get('SQLALCHEMY_DATABASE_URI', ''):
+            try:
+                db.create_all()
+            except Exception as e:
+                app.logger.warning(f"Table creation warning (may already exist): {str(e)}")
         
         # Bootstrap superuser account if environment variables are set
         _create_superuser_if_needed(app)

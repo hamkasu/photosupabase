@@ -14,15 +14,21 @@ CALMIC SDN BHD - "Committed to Excellence"
 <!-- photovault/templates/editor.html -->
 {% extends "base.html" %}
 {% block title %}Edit Photo - PhotoVault{% endblock %}
+
+{% block extra_css %}
+    <!-- Ensure CSRF token is available for the editor -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid mt-3">
     <div class="row">
-        <div class="col-md-9">
+        <div class="col-md-8">
             <canvas id="canvas"></canvas>
             <!-- Load the ORIGINAL image as the source for editing -->
-            <img id="sourceImage" src="{{ url_for('static', filename='uploads/' + photo.user_id|string + '/' + photo.filename) }}" style="display: none;">
+            <img id="sourceImage" src="{{ url_for('gallery.uploaded_file', user_id=photo.user_id, filename=photo.filename) }}" style="display: none;">
         </div>
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card">
                 <div class="card-header">
                     <h5>Editing Tools</h5>
@@ -47,35 +53,35 @@ CALMIC SDN BHD - "Committed to Excellence"
                     </div>
 
                     <h6>Markup Tools</h6>
-                    <div class="row mb-3">
-                        <div class="col-4 mb-2">
-                            <button class="btn btn-outline-primary btn-sm w-100" onclick="setTool('pen')">
-                                <i class="bi bi-pen"></i> Pen
+                    <div class="row g-2 mb-3">
+                        <div class="col-6 col-lg-4 mb-2">
+                            <button class="btn btn-outline-primary btn-sm w-100" onclick="setTool('pen')" title="Pen">
+                                <i class="bi bi-pen"></i>
                             </button>
                         </div>
-                        <div class="col-4 mb-2">
-                            <button class="btn btn-outline-primary btn-sm w-100" onclick="setTool('highlight')">
-                                <i class="bi bi-highlighter"></i> Highlight
+                        <div class="col-6 col-lg-4 mb-2">
+                            <button class="btn btn-outline-primary btn-sm w-100" onclick="setTool('highlight')" title="Highlight">
+                                <i class="bi bi-highlighter"></i>
                             </button>
                         </div>
-                        <div class="col-4 mb-2">
-                            <button class="btn btn-outline-primary btn-sm w-100" onclick="setTool('arrow')">
-                                <i class="bi bi-arrow-up-right"></i> Arrow
+                        <div class="col-6 col-lg-4 mb-2">
+                            <button class="btn btn-outline-primary btn-sm w-100" onclick="setTool('arrow')" title="Arrow">
+                                <i class="bi bi-arrow-up-right"></i>
                             </button>
                         </div>
-                        <div class="col-4 mb-2">
-                            <button class="btn btn-outline-primary btn-sm w-100" onclick="setTool('rectangle')">
-                                <i class="bi bi-square"></i> Box
+                        <div class="col-6 col-lg-4 mb-2">
+                            <button class="btn btn-outline-primary btn-sm w-100" onclick="setTool('rectangle')" title="Rectangle">
+                                <i class="bi bi-square"></i>
                             </button>
                         </div>
-                        <div class="col-4 mb-2">
-                            <button class="btn btn-outline-primary btn-sm w-100" onclick="setTool('circle')">
-                                <i class="bi bi-circle"></i> Circle
+                        <div class="col-6 col-lg-4 mb-2">
+                            <button class="btn btn-outline-primary btn-sm w-100" onclick="setTool('circle')" title="Circle">
+                                <i class="bi bi-circle"></i>
                             </button>
                         </div>
-                        <div class="col-4 mb-2">
-                            <button class="btn btn-outline-primary btn-sm w-100" onclick="setTool('text')">
-                                <i class="bi bi-fonts"></i> Text
+                        <div class="col-6 col-lg-4 mb-2">
+                            <button class="btn btn-outline-primary btn-sm w-100" onclick="setTool('text')" title="Add Text">
+                                <i class="bi bi-fonts"></i>
                             </button>
                         </div>
                     </div>

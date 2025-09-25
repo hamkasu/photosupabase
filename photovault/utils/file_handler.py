@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 from PIL import Image
 import io
 import logging
+from photovault.services.app_storage_service import app_storage
 
 logger = logging.getLogger(__name__)
 
@@ -118,13 +119,14 @@ def save_uploaded_file(file, filename, user_id=None):
         logger.error(f'Error saving file {filename}: {str(e)}')
         return False, f'Save error: {str(e)}'
 
-def generate_unique_filename(original_filename, prefix=""):
+def generate_unique_filename(original_filename, prefix="", username=None):
     """
     Generate a unique filename while preserving the original extension
     
     Args:
         original_filename: Original filename from upload
         prefix: Optional prefix for the filename
+        username: Optional username to include at the start of filename
         
     Returns:
         str: Unique filename with original extension
@@ -138,16 +140,32 @@ def generate_unique_filename(original_filename, prefix=""):
         file_ext = '.jpg'  # Default extension
     
     # Generate unique name with UUID and timestamp
-    unique_id = str(uuid.uuid4().hex)[:12]
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    # Calculate available characters for filename (12 total - extension length)
+    available_chars = 12 - len(file_ext)
+    if available_chars > 8:
+        available_chars = 8
+    unique_id = str(uuid.uuid4().hex)[:available_chars]
+
     
-    # Combine with prefix if provided
+    # Return short filename
     if prefix:
-        unique_name = f"{prefix}_{timestamp}_{unique_id}"
+        parts = []
+        if username:
+            parts.append(secure_filename(username))
+        parts.append(prefix)
+        # parts.append(timestamp)
+        parts.append(unique_id)
+        unique_name = "_".join(parts)
     else:
-        unique_name = f"{timestamp}_{unique_id}"
+        parts = []
+        if username:
+            parts.append(secure_filename(username))
+        parts.append("upload")
+        # parts.append(timestamp)
+        parts.append(unique_id)
+        unique_name = "_".join(parts)
     
-    return f"{unique_name}{file_ext}"
+    return f"{unique_id}{file_ext}"
 
 def get_file_size_mb(file_path):
     """
