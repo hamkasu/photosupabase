@@ -38,3 +38,6 @@ sendgrid==6.12.5
 
 # Optional - Remove for Railway deployment
 # replit-object-storage==1.0.2
+numpy
+opencv-python
+scikit-image
