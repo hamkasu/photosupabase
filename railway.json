@@ -7,5 +7,13 @@
     "numReplicas": 1,
     "sleepApplication": false,
     "restartPolicyType": "ON_FAILURE"
+  },
+  "environments": {
+    "production": {
+      "variables": {
+        "FLASK_CONFIG": "production",
+        "LOG_TO_STDOUT": "1"
+      }
+    }
   }
 }

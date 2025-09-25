@@ -13,10 +13,23 @@ PhotoVault by Calmic Sdn Bhd is a professional photo management platform built w
 - **Development Workflow**: Configured and started "PhotoVault Frontend" workflow on port 5000
 - **Application Testing**: Verified application is running and serving requests successfully with proper static file handling
 - **Production Deployment**: Configured autoscale deployment with Gunicorn for production use
+- **Railway Deployment Setup**: Updated railway.json with production environment variables (FLASK_CONFIG=production, LOG_TO_STDOUT=1)
 - **Previous Migration Notes**: 
   - Fixed Railway deployment compatibility with App Storage detection logic
   - Resolved image serving issues for cross-platform compatibility
   - Application works seamlessly in both Replit and external platforms like Railway
+
+## Railway Deployment Requirements
+
+When deploying to Railway, ensure these environment variables are set:
+- **SECRET_KEY**: Strong random secret key for session security (critical - generate with `python -c "import secrets; print(secrets.token_urlsafe(32))"`)
+- **DATABASE_URL**: PostgreSQL connection string (Railway will provide this)
+- **FLASK_CONFIG**: Set to "production" (configured in railway.json)
+- **LOG_TO_STDOUT**: Set to "1" for proper logging (configured in railway.json)
+
+**Critical Storage Note**: Photo uploads are stored locally by default and will be lost on Railway restarts. For production, configure persistent storage:
+- Set up Railway volume and point UPLOAD_FOLDER environment variable to mounted path, OR
+- Integrate external object storage service and update app_storage_service configuration
 
 # User Preferences
 
