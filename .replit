@@ -16,15 +16,15 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "PhotoVault Backend"
+args = "PhotoVault Frontend"
 
 [[workflows.workflow]]
-name = "PhotoVault Backend"
+name = "PhotoVault Frontend"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python main.py"
+args = "FLASK_ENV=development FLASK_DEBUG=true SECRET_KEY=\"photovault-secret-key-for-replit-development-only\" python main.py"
 waitForPort = 5000
 
 [workflows.workflow.metadata]
@@ -33,10 +33,6 @@ outputType = "webview"
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 45833
-externalPort = 3000
 
 [deployment]
 deploymentTarget = "autoscale"
