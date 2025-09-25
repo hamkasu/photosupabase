@@ -16,10 +16,6 @@ alembic==1.13.1
 
 # Image Processing
 Pillow==11.0.0
-opencv-python-headless==4.8.0.76
-opencv-contrib-python-headless==4.8.0.76
-numpy==1.24.4
-scikit-image==0.21.0
 
 # Security and Forms
 WTForms==3.1.1
@@ -42,30 +38,3 @@ sendgrid==6.12.5
 
 # Optional - Remove for Railway deployment
 # replit-object-storage==1.0.2
-alembic
-blinker
-click
-email-validator
-exifread
-Flask
-Flask-Login
-Flask-Migrate
-Flask-SQLAlchemy
-Flask-WTF
-gunicorn
-itsdangerous
-Jinja2
-MarkupSafe
-numpy
-opencv-contrib-python-headless
-opencv-python-headless
-Pillow
-psycopg2-binary
-python-decouple
-python-dotenv
-requests
-scikit-image
-sendgrid
-SQLAlchemy
-Werkzeug
-WTForms

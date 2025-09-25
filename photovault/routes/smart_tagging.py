@@ -7,7 +7,6 @@ import logging
 from flask import Blueprint, render_template, request, jsonify, current_app
 from flask_login import login_required, current_user
 from photovault.models import Photo, Person, PhotoPerson, db
-from photovault.services.face_detection_service import face_detection_service
 from photovault.extensions import csrf
 
 logger = logging.getLogger(__name__)
@@ -19,10 +18,15 @@ smart_tagging_bp = Blueprint('smart_tagging', __name__)
 @login_required
 def smart_tagging_page():
     """Render the smart tagging interface"""
-    # Get statistics for the user
-    stats = face_detection_service.get_face_detection_stats(current_user.id)
+    # Face detection disabled - return empty stats
+    stats = {
+        'total_faces': 0,
+        'verified_faces': 0,
+        'unknown_faces': 0,
+        'total_people': 0
+    }
     
-    # Get photos with detected faces (unverified tags)
+    # Get photos with any manual tags (unverified tags)
     photos_with_faces = db.session.query(Photo).join(PhotoPerson).filter(
         Photo.user_id == current_user.id,
         PhotoPerson.verified.is_(False)
@@ -257,10 +261,8 @@ def tag_face():
         
         # Add training data for face recognition if this is a verified tag
         if hasattr(tag, 'bounding_box') and tag.bounding_box:
-            try:
-                face_detection_service.add_person_training_data(person, photo, tag.bounding_box)
-            except Exception as e:
-                logger.warning(f"Could not add training data: {e}")
+            # Face detection disabled - skip training data
+            pass
         
         return jsonify({
             'success': True,
@@ -293,10 +295,8 @@ def verify_tag(tag_id):
             
             # Add training data for face recognition
             if hasattr(tag, 'bounding_box') and tag.bounding_box and tag.person:
-                try:
-                    face_detection_service.add_person_training_data(tag.person, tag.photo, tag.bounding_box)
-                except Exception as e:
-                    logger.warning(f"Could not add training data: {e}")
+                # Face detection disabled - skip training data
+                pass
             
             logger.info(f"Verified face tag {tag_id}")
         
@@ -337,7 +337,12 @@ def delete_tag(tag_id):
 def get_tagging_stats():
     """Get face detection and tagging statistics"""
     try:
-        stats = face_detection_service.get_face_detection_stats(current_user.id)
+        stats = {
+            'total_faces': 0,
+            'verified_faces': 0,
+            'unknown_faces': 0,
+            'total_people': 0
+        }
         return jsonify({
             'success': True,
             'stats': stats

@@ -19,10 +19,6 @@ import logging
 from photovault.models import Photo, Album, User, Person, PhotoPerson
 from photovault.extensions import db
 
-# Import face detection utilities
-from photovault.utils.face_detection import detect_faces_in_photo
-from photovault.utils.face_recognition import face_recognizer
-
 # Import file handling utilities
 from photovault.utils.file_handler import create_thumbnail
 
@@ -1042,22 +1038,21 @@ def detect_faces_in_photo_api(photo_id):
         if photo.user_id != current_user.id:
             return jsonify({'success': False, 'error': 'Access denied'}), 403
         
-        # Detect faces in the photo
-        faces = detect_faces_in_photo(photo.file_path)
+        # Face detection disabled - return empty result
+        faces = []
         
-        if not faces:
-            return jsonify({
-                'success': True,
-                'message': 'No faces detected in this photo',
-                'faces': []
-            })
+        return jsonify({
+            'success': True,
+            'message': 'Face detection is disabled',
+            'faces': []
+        })
         
         # Store detected faces in database
         stored_faces = []
         for face in faces:
             try:
-                # Try to recognize the face
-                recognition_result = face_recognizer.recognize_face(photo.file_path, face)
+                # Face recognition disabled
+                recognition_result = None
                 
                 if recognition_result:
                     # Face recognized - link to existing person
@@ -1346,14 +1341,14 @@ def batch_detect_faces():
         
         for photo in photos_to_process:
             try:
-                # Detect faces
-                faces = detect_faces_in_photo(photo.file_path)
+                # Face detection disabled - skip processing
+                faces = []
                 
                 faces_stored = 0
                 for face in faces:
                     try:
-                        # Try to recognize the face
-                        recognition_result = face_recognizer.recognize_face(photo.file_path, face)
+                        # Face recognition disabled
+                        recognition_result = None
                         
                         # Store detection
                         photo_person = PhotoPerson(

@@ -17,8 +17,6 @@ from photovault.utils.enhanced_file_handler import (
 )
 from photovault.utils.metadata_extractor import extract_metadata_for_photo
 from photovault.utils.image_enhancement import enhance_for_old_photo
-from photovault.utils.face_detection import detect_faces_in_photo
-from photovault.utils.face_recognition import face_recognizer
 import logging
 
 # Configure logging
@@ -151,24 +149,12 @@ def upload_photos():
                     db.session.add(photo)
                     db.session.commit()
                     
-                    # Intelligent face detection and recognition
-                    face_processing_result = {}
-                    try:
-                        from photovault.services.face_detection_service import face_detection_service
-                        
-                        # Process faces with our intelligent service
-                        face_processing_result = face_detection_service.process_and_tag_photo(photo, auto_tag=True)
-                        
-                        if face_processing_result.get('faces_detected', 0) > 0:
-                            logger.info(f"Face processing completed for {file.filename}: "
-                                       f"{face_processing_result['faces_detected']} faces detected, "
-                                       f"{face_processing_result['faces_recognized']} recognized, "
-                                       f"{face_processing_result['tags_created']} auto-tagged")
-                    
-                    except Exception as face_detection_error:
-                        logger.warning(f"Face processing failed for {file.filename}: {face_detection_error}")
-                        # Don't fail the upload if face detection fails
-                        face_processing_result = {'error': str(face_detection_error)}
+                    # Face detection disabled - skip face processing
+                    face_processing_result = {
+                        'faces_detected': 0,
+                        'faces_recognized': 0,
+                        'tags_created': 0
+                    }
                     
                     uploaded_files.append({
                         'id': photo.id,

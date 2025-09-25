@@ -4,16 +4,7 @@ NIXPACKS_PYTHON_VERSION = "3.11"
 [phases.setup]
 nixPkgs = [
     "python311", 
-    "python311Packages.pip",
-    "gcc",
-    "glib",
-    "libGL",
-    "libgcc",
-    "glibc",
-    "stdenv.cc.cc.lib",
-    "libstdcxx5",
-    "opencv4",
-    "pkg-config"
+    "python311Packages.pip"
 ]
 
 [phases.install]
