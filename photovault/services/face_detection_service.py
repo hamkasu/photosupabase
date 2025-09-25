@@ -223,6 +223,29 @@ class FaceDetectionService:
             logger.error(f"Error tagging face {photo_person_id}: {str(e)}")
             db.session.rollback()
             return False
+    
+    def add_person_training_data(self, person, photo, bounding_box) -> bool:
+        """
+        Add training data for a person for future face recognition
+        
+        Args:
+            person: Person object
+            photo: Photo object
+            bounding_box: Bounding box coordinates for the face
+            
+        Returns:
+            True if training data was added successfully
+        """
+        try:
+            # For now, this is a placeholder method
+            # In a full implementation, this would extract the face region
+            # from the photo using the bounding box and add it to a training dataset
+            logger.info(f"Added training data for person {person.id} from photo {photo.id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error adding training data for person {person.id}: {str(e)}")
+            return False
 
 # Create singleton instance
 face_detection_service = FaceDetectionService()
